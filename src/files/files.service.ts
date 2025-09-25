@@ -1,0 +1,185 @@
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  OnModuleInit,
+} from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
+import { existsSync } from 'fs';
+import { join } from 'path';
+import { CaseDocumentDto } from './dto/case-document.dto';
+
+@Injectable()
+export class FilesService extends PrismaClient implements OnModuleInit {
+  private readonly logger = new Logger(FilesService.name);
+  async onModuleInit() {
+    await this.$connect();
+    this.logger.log('FilesService initialized');
+  }
+
+  async saveFileRecord(
+    file: Express.Multer.File,
+    caseDocumentDto: CaseDocumentDto,
+  ) {
+    const {
+      clientId,
+      caseId,
+      documentTypeId,
+      parentDocumentId,
+      createdBy,
+      ...documentData
+    } = caseDocumentDto;
+    const secureUrl = `${process.env.HOST_API}/files/case-file/${file.filename}`;
+
+    await this.validateFileData(caseDocumentDto);
+
+    const creator = await this.user.findUnique({
+      where: { username: createdBy },
+    });
+
+    if (!creator) throw new Error('Creator User not found');
+
+    const newDocument = await this.document.create({
+      data: {
+        fileName: file.filename,
+        title: '',
+        filePath: secureUrl,
+        fileSize: file.size,
+        mimeType: file.mimetype,
+        documentDate: new Date(),
+        receivedDate: new Date(),
+        isPrivileged: documentData.isPrivileged || false,
+        isEvidence: documentData.isEvidence || false,
+        confidentialityLevel: documentData.confidentialityLevel || 'NORMAL',
+        versionNumber: +documentData.versionNumber,
+        case: {
+          connect: {
+            id: +caseId,
+          },
+        },
+        client: {
+          connect: {
+            id: +clientId,
+          },
+        },
+        documentType: {
+          connect: {
+            id: +documentTypeId,
+          },
+        },
+        ...(parentDocumentId && {
+          parentDocument: {
+            connect: {
+              id: +parentDocumentId,
+            },
+          },
+        }),
+        creator: {
+          connect: {
+            id: creator.id,
+          },
+        },
+      },
+    });
+
+    if (!newDocument) throw Error('Error creating document');
+
+    const { fileSize, ...restDocument } = newDocument;
+
+    return restDocument;
+  }
+
+  getProfilePhoto(fileName: string) {
+    const path = join(
+      __dirname,
+      '../../static/uploads/user-profile-photos',
+      fileName,
+    );
+
+    if (!existsSync(path)) {
+      throw new BadRequestException('File not found ' + path);
+    }
+    return path;
+  }
+
+  getCaseFile(fileName: string) {
+    const path = join(__dirname, '../../static/uploads/case-files', fileName);
+
+    if (!existsSync(path)) {
+      throw new BadRequestException('File not found ' + path);
+    }
+    return path;
+  }
+
+  async getCaseFiles(caseId: string) {
+    const files = await this.document.findMany({
+      where: { caseId: +caseId },
+      // select: {
+      //   id: true,
+      //   title: true,
+      //   filePath: true,
+      //   fileName: true,
+
+      // },
+    });
+
+    if (!files) throw new NotFoundException('No documents were found');
+
+    const newFiles = files.map((file) => {
+      const { fileSize, ...restFile } = file;
+      const size = parseInt(file.fileSize.toString()) / 1024;
+      return {
+        size,
+        ...restFile,
+      };
+    });
+
+    return newFiles;
+  }
+
+  private async validateFileData(caseDocumentDto: CaseDocumentDto) {
+    const {
+      clientId,
+      caseId,
+      documentTypeId,
+      parentDocumentId,
+      createdBy,
+      ...documentData
+    } = caseDocumentDto;
+
+    const existingClient = await this.client.findUnique({
+      where: { id: +clientId },
+    });
+
+    if (!existingClient) {
+      throw new Error('Client not found');
+    }
+
+    const existingCase = await this.case.findUnique({
+      where: { id: +caseId },
+    });
+
+    if (!existingCase) {
+      throw new Error('Case not found');
+    }
+
+    const existingDocumentType = await this.documentType.findUnique({
+      where: { id: +documentTypeId },
+    });
+
+    if (!existingDocumentType) {
+      throw new Error('Document type not found');
+    }
+
+    if (parentDocumentId) {
+      const parentDocument = await this.document.findUnique({
+        where: { id: +parentDocumentId },
+      });
+
+      if (!parentDocument) {
+        throw new Error('Parent Document not found');
+      }
+    }
+  }
+}

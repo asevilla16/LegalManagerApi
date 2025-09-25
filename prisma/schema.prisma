@@ -1,0 +1,560 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model CourtType {
+  id                Int       @id @default(autoincrement())
+  name              String    @db.VarChar(100)
+  code              String    @unique @db.VarChar(20)
+  jurisdictionLevel String    @map("jurisdiction_level")
+  description       String?
+  isActive          Boolean   @default(true) @map("is_active")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime? @updatedAt @map("updated_at")
+
+  // Relations
+  courts Court[]
+  cases  Case[]
+
+  @@map("court_types")
+}
+
+model CaseType {
+  id                      Int      @id @default(autoincrement())
+  name                    String   @db.VarChar(100)
+  code                    String   @unique @db.VarChar(20)
+  category                String   @db.VarChar(50) // 'CIVIL', 'CRIMINAL', 'LABOR', 'CONSTITUTIONAL', 'ADMINISTRATIVE'
+  description             String?
+  statuteOfLimitationDays Int?     @map("statute_of_limitations_days")
+  isActive                Boolean  @default(true) @map("is_active")
+  createdAt               DateTime @default(now()) @map("created_at")
+
+  // Relations
+  cases Case[]
+
+  @@map("case_types")
+}
+
+model DocumentType {
+  id           Int      @id @default(autoincrement())
+  name         String   @db.VarChar(100)
+  code         String   @unique @db.VarChar(20)
+  category     String?  @db.VarChar(50) // 'PLEADING', 'CONTRACT', 'EVIDENCE', 'CORRESPONDENCE'
+  templatePath String?  @map("template_path") @db.VarChar(255)
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  // Relations
+  documents Document[]
+
+  @@map("document_types")
+}
+
+model CaseStatus {
+  id        Int     @id @default(autoincrement())
+  name      String  @db.VarChar(50)
+  code      String  @unique @db.VarChar(20)
+  isFinal   Boolean @default(false) @map("is_final")
+  sortOrder Int     @default(0) @map("sort_order")
+  isActive  Boolean @default(true) @map("is_active")
+
+  // Relations
+  cases Case[]
+
+  @@map("case_statuses")
+}
+
+// =====================================================
+// FIRM AND USER MANAGEMENT
+// =====================================================
+
+model LawFirm {
+  id                 Int       @id @default(autoincrement())
+  name               String    @db.VarChar(200)
+  registrationNumber String?   @map("registration_number") @db.VarChar(50)
+  taxId              String?   @map("tax_id") @db.VarChar(50)
+  address            String?
+  city               String?   @db.VarChar(100)
+  department         String?   @db.VarChar(100) // Honduras departments
+  postalCode         String?   @map("postal_code") @db.VarChar(20)
+  phone              String?   @db.VarChar(50)
+  email              String?   @db.VarChar(100)
+  website            String?   @db.VarChar(200)
+  isActive           Boolean   @default(true) @map("is_active")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime? @updatedAt @map("updated_at")
+
+  // Relations
+  users   User[]
+  clients Client[]
+  cases   Case[]
+
+  @@map("law_firms")
+}
+
+model User {
+  id                  String    @id @default(cuid())
+  lawFirmId           Int?      @map("law_firm_id")
+  username            String    @unique @db.VarChar(50)
+  email               String    @unique @db.VarChar(100)
+  passwordHash        String    @map("password_hash") @db.VarChar(255)
+  firstName           String    @map("first_name") @db.VarChar(100)
+  lastName            String    @map("last_name") @db.VarChar(100)
+  middleName          String?   @map("middle_name") @db.VarChar(100)
+  role                String    @db.VarChar(50) // 'PARTNER', 'ASSOCIATE', 'PARALEGAL', 'ADMIN', 'SECRETARY'
+  barNumber           String?   @map("bar_number") @db.VarChar(50) // Honduran bar registration
+  barRegistrationDate DateTime? @map("bar_registration_date") @db.Date
+  phone               String?   @db.VarChar(50)
+  isAttorney          Boolean   @default(false) @map("is_attorney")
+  isActive            Boolean   @default(true) @map("is_active")
+  lastLogin           DateTime? @map("last_login")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime? @updatedAt @map("updated_at")
+
+  // Relations
+  lawFirm                  LawFirm?         @relation(fields: [lawFirmId], references: [id])
+  createdClients           Client[]         @relation("ClientCreator")
+  primaryAttorneyCases     Case[]           @relation("PrimaryAttorney")
+  originatingAttorneyCases Case[]           @relation("OriginatingAttorney")
+  createdCases             Case[]           @relation("CaseCreator")
+  caseAssignments          CaseAssignment[]
+  createdDocuments         Document[]
+  createdHearings          Hearing[]
+  responsibleDeadlines     Deadline[]       @relation("ResponsibleUser")
+  createdDeadlines         Deadline[]       @relation("DeadlineCreator")
+  billingRates             BillingRate[]
+  timeEntries              TimeEntry[]
+  expenses                 Expense[]
+  createdCommunications    Communication[]
+  caseNotes                CaseNote[]
+
+  @@map("users")
+}
+
+// =====================================================
+// CLIENT MANAGEMENT
+// =====================================================
+
+model Client {
+  id           Int     @id @default(autoincrement())
+  lawFirmId    Int     @map("law_firm_id")
+  clientNumber String? @unique @map("client_number") @db.VarChar(50)
+  clientType   String  @map("client_type") @db.VarChar(20) // 'INDIVIDUAL', 'CORPORATE', 'GOVERNMENT'
+
+  // Individual client fields
+  firstName        String?   @map("first_name") @db.VarChar(100)
+  lastName         String?   @map("last_name") @db.VarChar(100)
+  middleName       String?   @map("middle_name") @db.VarChar(100)
+  identityDocument String?   @map("identity_document") @db.VarChar(50) // DNI, passport, etc.
+  birthDate        DateTime? @map("birth_date") @db.Date
+  gender           String?   @db.VarChar(10)
+
+  // Corporate client fields
+  companyName         String? @map("company_name") @db.VarChar(200)
+  taxId               String? @map("tax_id") @db.VarChar(50)
+  registrationNumber  String? @map("registration_number") @db.VarChar(50)
+  legalRepresentative String? @map("legal_representative") @db.VarChar(200)
+
+  // Common fields
+  address    String?
+  city       String? @db.VarChar(100)
+  department String? @db.VarChar(100)
+  postalCode String? @map("postal_code") @db.VarChar(20)
+  phone      String? @db.VarChar(50)
+  mobile     String? @db.VarChar(50)
+  email      String? @db.VarChar(100)
+  occupation String? @db.VarChar(100)
+
+  // Client management
+  clientSince DateTime  @default(now()) @map("client_since") @db.Date
+  isActive    Boolean   @default(true) @map("is_active")
+  notes       String?
+  createdBy   String    @map("created_by")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime? @updatedAt @map("updated_at")
+
+  // Relations
+  lawFirm        LawFirm         @relation(fields: [lawFirmId], references: [id])
+  creator        User            @relation("ClientCreator", fields: [createdBy], references: [id])
+  contacts       ClientContact[]
+  caseParties    CaseParty[]
+  documents      Document[]
+  communications Communication[]
+
+  @@map("clients")
+}
+
+model ClientContact {
+  id        Int      @id @default(autoincrement())
+  clientId  Int      @map("client_id")
+  name      String   @db.VarChar(200)
+  position  String?  @db.VarChar(100)
+  phone     String?  @db.VarChar(50)
+  email     String?  @db.VarChar(100)
+  isPrimary Boolean  @default(false) @map("is_primary")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@map("client_contacts")
+}
+
+// =====================================================
+// CASE MANAGEMENT
+// =====================================================
+
+model Case {
+  id              Int     @id @default(autoincrement())
+  lawFirmId       Int     @map("law_firm_id")
+  caseNumber      String  @unique @map("case_number") @db.VarChar(100)
+  courtCaseNumber String? @map("court_case_number") @db.VarChar(100)
+  title           String  @db.VarChar(500)
+  caseTypeId      Int     @map("case_type_id")
+  caseStatusId    Int     @map("case_status_id")
+  courtTypeId     Int?    @map("court_type_id")
+
+  // Case details
+  description     String?
+  caseValue       Decimal?  @map("case_value") @db.Decimal(15, 2)
+  currency        String    @default("HNL") @db.VarChar(3)
+  filingDate      DateTime? @map("filing_date") @db.Date
+  statuteDeadline DateTime? @map("statute_deadline") @db.Date
+  nextHearingDate DateTime? @map("next_hearing_date")
+
+  // Assignment
+  primaryAttorneyId     String? @map("primary_attorney_id")
+  originatingAttorneyId String? @map("originating_attorney_id")
+
+  // Status tracking
+  isContingency Boolean   @default(false) @map("is_contingency")
+  isProBono     Boolean   @default(false) @map("is_pro_bono")
+  isActive      Boolean   @default(true) @map("is_active")
+  closedDate    DateTime? @map("closed_date") @db.Date
+  outcome       String?
+
+  createdBy String    @map("created_by")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime? @updatedAt @map("updated_at")
+
+  // Relations
+  lawFirm             LawFirm    @relation(fields: [lawFirmId], references: [id])
+  caseType            CaseType   @relation(fields: [caseTypeId], references: [id])
+  caseStatus          CaseStatus @relation(fields: [caseStatusId], references: [id])
+  courtType           CourtType? @relation(fields: [courtTypeId], references: [id])
+  primaryAttorney     User?      @relation("PrimaryAttorney", fields: [primaryAttorneyId], references: [id])
+  originatingAttorney User?      @relation("OriginatingAttorney", fields: [originatingAttorneyId], references: [id])
+  creator             User       @relation("CaseCreator", fields: [createdBy], references: [id])
+
+  parties        CaseParty[]
+  assignments    CaseAssignment[]
+  documents      Document[]
+  hearings       Hearing[]
+  deadlines      Deadline[]
+  timeEntries    TimeEntry[]
+  expenses       Expense[]
+  communications Communication[]
+  notes          CaseNote[]
+
+  @@map("cases")
+}
+
+model CaseParty {
+  id        Int      @id @default(autoincrement())
+  caseId    Int      @map("case_id")
+  clientId  Int?     @map("client_id")
+  partyType String   @map("party_type") @db.VarChar(50) // 'PLAINTIFF', 'DEFENDANT', 'THIRD_PARTY', 'WITNESS'
+  name      String   @db.VarChar(200) // For non-client parties
+  address   String?
+  phone     String?  @db.VarChar(50)
+  email     String?  @db.VarChar(100)
+  isClient  Boolean  @default(false) @map("is_client")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  case   Case    @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  client Client? @relation(fields: [clientId], references: [id])
+
+  @@map("case_parties")
+}
+
+model CaseAssignment {
+  id             Int      @id @default(autoincrement())
+  caseId         Int      @map("case_id")
+  userId         String   @map("user_id")
+  role           String   @db.VarChar(50) // 'PRIMARY', 'SECONDARY', 'PARALEGAL', 'CONSULTANT'
+  assignmentDate DateTime @default(now()) @map("assignment_date") @db.Date
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  // Relations
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("case_assignments")
+}
+
+// =====================================================
+// DOCUMENT MANAGEMENT
+// =====================================================
+
+model Document {
+  id             Int  @id @default(autoincrement())
+  caseId         Int? @map("case_id")
+  clientId       Int? @map("client_id")
+  documentTypeId Int  @map("document_type_id")
+
+  title       String  @db.VarChar(500)
+  description String?
+  fileName    String? @map("file_name") @db.VarChar(255)
+  filePath    String? @map("file_path") @db.VarChar(1000)
+  fileSize    BigInt? @map("file_size")
+  mimeType    String? @map("mime_type") @db.VarChar(100)
+
+  // Document metadata
+  documentDate         DateTime? @map("document_date") @db.Date
+  receivedDate         DateTime? @map("received_date") @db.Date
+  isPrivileged         Boolean   @default(false) @map("is_privileged")
+  isEvidence           Boolean   @default(false) @map("is_evidence")
+  confidentialityLevel String    @default("NORMAL") @map("confidentiality_level") @db.VarChar(20) // 'PUBLIC', 'NORMAL', 'CONFIDENTIAL', 'RESTRICTED'
+
+  // Version control
+  versionNumber    Int  @default(1) @map("version_number")
+  parentDocumentId Int? @map("parent_document_id")
+
+  createdBy String    @map("created_by")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime? @updatedAt @map("updated_at")
+
+  // Relations
+  case           Case?        @relation(fields: [caseId], references: [id])
+  client         Client?      @relation(fields: [clientId], references: [id])
+  documentType   DocumentType @relation(fields: [documentTypeId], references: [id])
+  parentDocument Document?    @relation("DocumentVersions", fields: [parentDocumentId], references: [id])
+  childDocuments Document[]   @relation("DocumentVersions")
+  creator        User         @relation(fields: [createdBy], references: [id])
+
+  @@map("documents")
+}
+
+// =====================================================
+// COURT AND PROCEDURAL MANAGEMENT
+// =====================================================
+
+model Court {
+  id            Int      @id @default(autoincrement())
+  name          String   @db.VarChar(200)
+  courtTypeId   Int      @map("court_type_id")
+  address       String?
+  city          String?  @db.VarChar(100)
+  department    String?  @db.VarChar(100)
+  phone         String?  @db.VarChar(50)
+  email         String?  @db.VarChar(100)
+  judgeName     String?  @map("judge_name") @db.VarChar(200)
+  secretaryName String?  @map("secretary_name") @db.VarChar(200)
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  // Relations
+  courtType CourtType @relation(fields: [courtTypeId], references: [id])
+  hearings  Hearing[]
+
+  @@map("courts")
+}
+
+model Hearing {
+  id      Int  @id @default(autoincrement())
+  caseId  Int  @map("case_id")
+  courtId Int? @map("court_id")
+
+  hearingType     String   @map("hearing_type") @db.VarChar(100) // 'INITIAL', 'EVIDENCE', 'ORAL_ARGUMENT', 'SENTENCING'
+  hearingDate     DateTime @map("hearing_date")
+  durationMinutes Int?     @map("duration_minutes")
+  location        String?  @db.VarChar(200)
+
+  // Hearing details
+  agenda    String?
+  outcome   String?
+  nextSteps String? @map("next_steps")
+
+  // Status
+  status String @default("SCHEDULED") @db.VarChar(50) // 'SCHEDULED', 'COMPLETED', 'POSTPONED', 'CANCELLED'
+
+  createdBy String    @map("created_by")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime? @updatedAt @map("updated_at")
+
+  // Relations
+  case    Case   @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  court   Court? @relation(fields: [courtId], references: [id])
+  creator User   @relation(fields: [createdBy], references: [id])
+
+  @@map("hearings")
+}
+
+model Deadline {
+  id                Int       @id @default(autoincrement())
+  caseId            Int       @map("case_id")
+  title             String    @db.VarChar(200)
+  description       String?
+  deadlineDate      DateTime  @map("deadline_date")
+  deadlineType      String?   @map("deadline_type") @db.VarChar(50) // 'FILING', 'RESPONSE', 'DISCOVERY', 'HEARING', 'STATUTE'
+  priority          String    @default("MEDIUM") @db.VarChar(20) // 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL'
+  isCompleted       Boolean   @default(false) @map("is_completed")
+  completedDate     DateTime? @map("completed_date")
+  responsibleUserId String?   @map("responsible_user_id")
+  createdBy         String    @map("created_by")
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  case            Case  @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  responsibleUser User? @relation("ResponsibleUser", fields: [responsibleUserId], references: [id])
+  creator         User  @relation("DeadlineCreator", fields: [createdBy], references: [id])
+
+  @@map("deadlines")
+}
+
+// =====================================================
+// TIME TRACKING AND BILLING
+// =====================================================
+
+model BillingRate {
+  id            Int       @id @default(autoincrement())
+  userId        String    @map("user_id")
+  rateType      String    @map("rate_type") @db.VarChar(50) // 'HOURLY', 'FLAT_FEE', 'CONTINGENCY'
+  rateAmount    Decimal   @map("rate_amount") @db.Decimal(10, 2)
+  currency      String    @default("HNL") @db.VarChar(3)
+  effectiveDate DateTime  @map("effective_date") @db.Date
+  endDate       DateTime? @map("end_date") @db.Date
+  isActive      Boolean   @default(true) @map("is_active")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("billing_rates")
+}
+
+model TimeEntry {
+  id     Int    @id @default(autoincrement())
+  caseId Int    @map("case_id")
+  userId String @map("user_id")
+
+  entryDate    DateTime @map("entry_date") @db.Date
+  hours        Decimal  @db.Decimal(4, 2)
+  description  String
+  activityType String?  @map("activity_type") @db.VarChar(100) // 'RESEARCH', 'DRAFTING', 'COURT_APPEARANCE', 'CLIENT_MEETING'
+
+  // Billing information
+  billableRate Decimal? @map("billable_rate") @db.Decimal(10, 2)
+  isBillable   Boolean  @default(true) @map("is_billable")
+  isInvoiced   Boolean  @default(false) @map("is_invoiced")
+  invoiceId    Int?     @map("invoice_id")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime? @updatedAt @map("updated_at")
+
+  // Relations
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("time_entries")
+}
+
+model Expense {
+  id     Int    @id @default(autoincrement())
+  caseId Int    @map("case_id")
+  userId String @map("user_id")
+
+  expenseDate DateTime @map("expense_date") @db.Date
+  amount      Decimal  @db.Decimal(10, 2)
+  currency    String   @default("HNL") @db.VarChar(3)
+  description String
+  expenseType String?  @map("expense_type") @db.VarChar(100) // 'TRAVEL', 'FILING_FEE', 'EXPERT_WITNESS', 'COPYING'
+
+  // Billing information
+  isBillable Boolean @default(true) @map("is_billable")
+  isInvoiced Boolean @default(false) @map("is_invoiced")
+  invoiceId  Int?    @map("invoice_id")
+
+  // Receipt tracking
+  receiptFilePath String? @map("receipt_file_path") @db.VarChar(1000)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("expenses")
+}
+
+// =====================================================
+// COMMUNICATION AND NOTES
+// =====================================================
+
+model Communication {
+  id       Int  @id @default(autoincrement())
+  caseId   Int? @map("case_id")
+  clientId Int? @map("client_id")
+
+  communicationType String  @map("communication_type") @db.VarChar(50) // 'EMAIL', 'PHONE', 'MEETING', 'LETTER'
+  direction         String  @db.VarChar(20) // 'INCOMING', 'OUTGOING'
+  subject           String? @db.VarChar(500)
+  content           String?
+
+  // Participants
+  fromContact String? @map("from_contact") @db.VarChar(200)
+  toContact   String? @map("to_contact") @db.VarChar(200)
+  ccContact   String? @map("cc_contact") @db.VarChar(500)
+
+  communicationDate DateTime @map("communication_date")
+  durationMinutes   Int?     @map("duration_minutes")
+
+  // Follow-up
+  requiresFollowup Boolean   @default(false) @map("requires_followup")
+  followupDate     DateTime? @map("followup_date") @db.Date
+
+  createdBy String   @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  case    Case?   @relation(fields: [caseId], references: [id])
+  client  Client? @relation(fields: [clientId], references: [id])
+  creator User    @relation(fields: [createdBy], references: [id])
+
+  @@map("communications")
+}
+
+model CaseNote {
+  id     Int    @id @default(autoincrement())
+  caseId Int    @map("case_id")
+  userId String @map("user_id")
+
+  title     String? @db.VarChar(200)
+  content   String
+  noteType  String  @default("GENERAL") @map("note_type") @db.VarChar(50) // 'GENERAL', 'STRATEGY', 'RESEARCH', 'CLIENT'
+  isPrivate Boolean @default(false) @map("is_private")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime? @updatedAt @map("updated_at")
+
+  // Relations
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("case_notes")
+}
