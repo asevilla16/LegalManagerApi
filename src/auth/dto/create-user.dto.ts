@@ -1,10 +1,15 @@
 import {
+  IsDateString,
   IsEmail,
+  IsEnum,
+  IsOptional,
+  IsPhoneNumber,
   IsString,
   Matches,
   MaxLength,
   MinLength,
 } from 'class-validator';
+import { UserRole } from '../entities/auth.entity';
 
 export class CreateUserDto {
   @IsString()
@@ -12,6 +17,9 @@ export class CreateUserDto {
 
   @IsString()
   firstName: string;
+
+  @IsString()
+  middleName: string;
 
   @IsString()
   lastName: string;
@@ -28,6 +36,19 @@ export class CreateUserDto {
   })
   password: string;
 
+  @IsEnum(UserRole)
+  role: UserRole;
+
   @IsString()
-  role: string;
+  @IsOptional()
+  @IsPhoneNumber() // Allow any country format
+  phoneNumber?: string;
+
+  @IsString()
+  @IsOptional()
+  barNumber?: string;
+
+  @IsDateString()
+  @IsOptional()
+  barRegistrationDate?: Date;
 }

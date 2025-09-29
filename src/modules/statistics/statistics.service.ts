@@ -36,7 +36,7 @@ export class StatisticsService extends PrismaClient implements OnModuleInit {
 
     return grouped.map((g) => {
       return {
-        ...g,
+        count: g._count.id,
         status: statuses.find((s) => s.id === g.caseStatusId).name,
       };
     });
@@ -159,5 +159,72 @@ export class StatisticsService extends PrismaClient implements OnModuleInit {
     });
 
     return { count: await count, cases: casesWithAssignments };
+  }
+
+  async getCasesByMonth() {
+    const cases = await this.case.findMany({
+      where: { isActive: true },
+      select: { filingDate: true },
+      orderBy: { filingDate: 'asc' },
+    });
+
+    console.log({ cases });
+
+    const grouped = cases.reduce((acc, case_) => {
+      const monthYear = case_.filingDate.toISOString().substring(0, 7); // YYYY-MM
+      acc[monthYear] = (acc[monthYear] || 0) + 1;
+      return acc;
+    }, {});
+
+    return Object.entries(grouped).map(([monthYear, count]) => ({
+      month: this.getSpanishMonthName(Number(monthYear.split('-')[1])),
+      year: Number(monthYear.split('-')[0]),
+      count,
+    }));
+  }
+
+  async getCasesByPracticeArea() {
+    const grouped = await this.case.groupBy({
+      by: ['caseTypeId'],
+      _count: {
+        id: true,
+      },
+      where: {
+        isActive: true,
+      },
+    });
+
+    const typeIds = grouped.map((g) => g.caseTypeId);
+
+    const caseTypes = await this.caseType.findMany({
+      where: { id: { in: typeIds } },
+    });
+
+    return grouped.map((g) => ({
+      practiceArea: caseTypes.find((t) => t.id === g.caseTypeId)?.name,
+      count: g._count.id,
+    }));
+  }
+
+  getNewClientsThisMonth() {
+    const now = new Date();
+    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+    return this.client.count({
+      where: {
+        createdAt: {
+          gte: firstDayOfMonth,
+          lte: lastDayOfMonth,
+        },
+        isActive: true,
+      },
+    });
+  }
+
+  getSpanishMonthName(monthNumber: number): string {
+    const date = new Date(2024, monthNumber - 1);
+    const monthName = date.toLocaleString('es-ES', { month: 'long' });
+    return monthName.charAt(0).toUpperCase() + monthName.slice(1);
   }
 }

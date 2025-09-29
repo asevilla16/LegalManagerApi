@@ -3,6 +3,7 @@ import { CreateCaseDto } from './dto/create-case.dto';
 import { UpdateCaseDto } from './dto/update-case.dto';
 import { PrismaClient } from '@prisma/client';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
+import e from 'express';
 
 @Injectable()
 export class CasesService extends PrismaClient implements OnModuleInit {
@@ -109,7 +110,7 @@ export class CasesService extends PrismaClient implements OnModuleInit {
           },
         },
         partyType: 'DEFENDANT',
-        name: client.firstName + ' ' + client.lastName,
+        name: this.buildClientName(client),
         email: client.email,
         phone: client.phone,
         address: client.address,
@@ -344,11 +345,6 @@ export class CasesService extends PrismaClient implements OnModuleInit {
       throw new Error('Case not found');
     }
 
-    const clientExistsAsParty = await this.verifyIfClientExistsAsParty(
-      clientId,
-      id,
-    );
-
     const caseUpdated = await this.case.update({
       where: { id },
       data: {
@@ -398,31 +394,7 @@ export class CasesService extends PrismaClient implements OnModuleInit {
     }
 
     if (clientId) {
-      if (!clientExistsAsParty) {
-        const client = await this.client.findUnique({
-          where: { id: clientId },
-        });
-
-        await this.caseParty.create({
-          data: {
-            case: {
-              connect: {
-                id: caseUpdated.id,
-              },
-            },
-            client: {
-              connect: {
-                id: clientId,
-              },
-            },
-            partyType: 'DEFENDANT',
-            name: client.firstName + ' ' + client.lastName,
-            isActive: true,
-            isClient: true,
-            createdAt: new Date(),
-          },
-        });
-      }
+      await this.handleClientChange(id, clientId);
     }
 
     return caseUpdated;
@@ -450,6 +422,72 @@ export class CasesService extends PrismaClient implements OnModuleInit {
     }
 
     return false;
+  }
+
+  private async handleClientChange(caseId: number, newClientId: number | null) {
+    // Get current client party
+    const existingClientParty = await this.caseParty.findFirst({
+      where: {
+        caseId,
+        isClient: true,
+        isActive: true,
+      },
+    });
+
+    if (newClientId === null) {
+      // Remove client (deactivate existing client party)
+      if (existingClientParty) {
+        await this.caseParty.update({
+          where: { id: existingClientParty.id },
+          data: { isActive: false },
+        });
+      }
+      return;
+    }
+
+    // Validate new client exists
+    const newClient = await this.client.findUnique({
+      where: { id: newClientId },
+    });
+    if (!newClient) {
+      throw new Error('Client not found');
+    }
+
+    if (existingClientParty) {
+      if (existingClientParty.clientId === newClientId) {
+        // Same client, no change needed
+        return;
+      }
+
+      // Different client - deactivate old and create new
+      await this.caseParty.update({
+        where: { id: existingClientParty.id },
+        data: { isActive: false },
+      });
+    }
+
+    // Create new client party
+    await this.caseParty.create({
+      data: {
+        caseId,
+        clientId: newClientId,
+        partyType: 'DEFENDANT', // or whatever default you prefer
+        name: `${newClient.firstName} ${newClient.lastName}`,
+        email: newClient.email,
+        phone: newClient.phone,
+        address: newClient.address,
+        isActive: true,
+        isClient: true,
+        createdAt: new Date(),
+      },
+    });
+  }
+
+  private buildClientName(client: any) {
+    if (client.clientType === 'COMPANY') {
+      return client.companyName;
+    }
+    return client.firstName + ' ' + client.lastName;
   }
 
   private async validateCaseData(caseData: CreateCaseDto) {

@@ -1,16 +1,12 @@
 import {
-  IsBoolean,
-  IsDateString,
   IsEmail,
-  IsOptional,
-  IsPhoneNumber,
   IsString,
   Matches,
   MaxLength,
   MinLength,
 } from 'class-validator';
 
-export class UpdateUserDto {
+export class RegisterUserDto {
   @IsString()
   username: string;
 
@@ -19,10 +15,6 @@ export class UpdateUserDto {
 
   @IsString()
   lastName: string;
-
-  @IsString()
-  middleName: string;
-
   @IsString()
   @IsEmail()
   email: string;
@@ -34,22 +26,8 @@ export class UpdateUserDto {
     message:
       'The password must have a Uppercase, lowercase letter and a number',
   })
-  @IsOptional()
-  password?: string;
+  password: string;
 
   @IsString()
   role: string;
-
-  @IsString()
-  barNumber: string;
-
-  @IsDateString()
-  barRegistrationDate: Date;
-
-  @IsPhoneNumber()
-  phoneNumber: string;
-
-  @IsBoolean()
-  @IsOptional()
-  isAttorney: boolean;
 }

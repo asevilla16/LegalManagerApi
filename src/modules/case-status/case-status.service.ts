@@ -61,7 +61,10 @@ export class CaseStatusService extends PrismaClient implements OnModuleInit {
     return `This action updates a #${id} caseStatus`;
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} caseStatus`;
+  deactivate(id: number) {
+    return this.caseStatus.update({
+      where: { id },
+      data: { isActive: false },
+    });
   }
 }

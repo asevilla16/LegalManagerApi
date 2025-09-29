@@ -317,12 +317,13 @@ model Document {
   clientId       Int? @map("client_id")
   documentTypeId Int  @map("document_type_id")
 
-  title       String  @db.VarChar(500)
-  description String?
-  fileName    String? @map("file_name") @db.VarChar(255)
-  filePath    String? @map("file_path") @db.VarChar(1000)
-  fileSize    BigInt? @map("file_size")
-  mimeType    String? @map("mime_type") @db.VarChar(100)
+  title        String  @db.VarChar(500)
+  description  String?
+  originalName String? @map("original_name") @db.VarChar(255)
+  fileName     String? @map("file_name") @db.VarChar(255)
+  filePath     String? @map("file_path") @db.VarChar(1000)
+  fileSize     BigInt? @map("file_size")
+  mimeType     String? @map("mime_type") @db.VarChar(100)
 
   // Document metadata
   documentDate         DateTime? @map("document_date") @db.Date

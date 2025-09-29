@@ -48,4 +48,19 @@ export class StatisticsController {
   getTotalClients() {
     return this.statisticsService.getTotalClients();
   }
+
+  @Get('clients/new-clients-this-month')
+  getNewClientsThisMonth() {
+    return this.statisticsService.getNewClientsThisMonth();
+  }
+
+  @Get('cases/cases-by-practice-area')
+  getCasesByPracticeArea() {
+    return this.statisticsService.getCasesByPracticeArea();
+  }
+
+  @Get('cases/cases-by-month')
+  getCasesByMonth() {
+    return this.statisticsService.getCasesByMonth();
+  }
 }
