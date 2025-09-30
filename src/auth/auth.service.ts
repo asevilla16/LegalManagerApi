@@ -13,7 +13,7 @@ import { User, UserRole } from './entities/auth.entity';
 import { JwtPayload } from './interface/jwt-payload.interface';
 import { JwtService } from '@nestjs/jwt';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { PaginationDto } from 'src/common/dto/pagination.dto';
+import { PaginationDto } from '../common/dto/pagination.dto';
 import { RegisterUserDto } from './dto/register.dto';
 
 @Injectable()
