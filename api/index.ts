@@ -1,10 +1,10 @@
 import { NestFactory } from '@nestjs/core';
 import { ExpressAdapter } from '@nestjs/platform-express';
-import { AppModule } from '../src/app.module';
+import { AppModule } from '../dist/app.module';
 import express from 'express';
 
 const expressApp = express();
-let cachedApp;
+let cachedApp: any;
 
 async function bootstrap() {
   if (!cachedApp) {
@@ -22,7 +22,7 @@ async function bootstrap() {
   return expressApp;
 }
 
-export default async (req, res) => {
+export default async (req: any, res: any) => {
   const app = await bootstrap();
   app(req, res);
 };
