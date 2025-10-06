@@ -3,20 +3,16 @@ import {
   Get,
   Post,
   Body,
-  Patch,
   Param,
-  Delete,
   UploadedFile,
   UseInterceptors,
   BadRequestException,
   Res,
-  StreamableFile,
 } from '@nestjs/common';
 import { FilesService } from './files.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { fileFilter, photosFilter } from './helpers/fileFilter.helper';
-import { diskStorage } from 'multer';
-import { fileNamer } from './helpers/fileNamer.helper';
+import { memoryStorage } from 'multer';
 import { Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { CaseDocumentDto } from './dto/case-document.dto';
@@ -34,10 +30,11 @@ export class FilesController {
   @UseInterceptors(
     FileInterceptor('file', {
       fileFilter: photosFilter,
-      storage: diskStorage({
-        destination: './static/uploads/user-profile-photos',
-        filename: fileNamer,
-      }),
+      storage: memoryStorage(),
+      // storage: diskStorage({
+      //   destination: './static/uploads/user-profile-photos',
+      //   filename: fileNamer,
+      // }),
     }),
   )
   uploadProfilePhoto(@UploadedFile() file: Express.Multer.File) {
@@ -55,10 +52,11 @@ export class FilesController {
   @UseInterceptors(
     FileInterceptor('file', {
       fileFilter: fileFilter,
-      storage: diskStorage({
-        destination: './static/uploads/case-files',
-        filename: fileNamer,
-      }),
+      storage: memoryStorage(),
+      // storage: diskStorage({
+      //   destination: './static/uploads/case-files',
+      //   filename: fileNamer,
+      // }),
     }),
   )
   uploadCaseFile(
@@ -87,10 +85,11 @@ export class FilesController {
   @UseInterceptors(
     FileInterceptor('file', {
       fileFilter: fileFilter,
-      storage: diskStorage({
-        destination: './static/uploads/template-files',
-        filename: fileNamer,
-      }),
+      storage: memoryStorage(),
+      // storage: diskStorage({
+      //   destination: './static/uploads/template-files',
+      //   filename: fileNamer,
+      // }),
     }),
   )
   uploadTemplateFile(
