@@ -194,11 +194,14 @@ export class CasesService extends PrismaClient implements OnModuleInit {
   }
 
   async findPaginatedCases(pagination: PaginationDto) {
-    const { page = 1, pageSize = 10 } = pagination;
+    const { page, pageSize } = pagination;
+
+    const parsedPageSize = Number(pageSize);
+    const parsedPage = Number(page);
 
     const totalItems = await this.case.count({ where: { isActive: true } });
 
-    const lastPage = Math.ceil(totalItems / pageSize);
+    const lastPage = Math.ceil(totalItems / parsedPageSize);
 
     const cases = await this.case.findMany({
       where: { isActive: true },
@@ -238,8 +241,8 @@ export class CasesService extends PrismaClient implements OnModuleInit {
         },
       },
 
-      take: pageSize,
-      skip: (page - 1) * pageSize,
+      take: parsedPageSize,
+      skip: (parsedPage - 1) * parsedPageSize,
     });
 
     const casesWithParties = await Promise.all(
@@ -269,7 +272,7 @@ export class CasesService extends PrismaClient implements OnModuleInit {
     }
 
     return {
-      page,
+      parsedPage,
       totalItems,
       lastPage,
       pageSize: cases.length,

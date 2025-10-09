@@ -75,13 +75,16 @@ export class ClientsService extends PrismaClient implements OnModuleInit {
   async findPaginatedClients(pagination: PaginationDto) {
     const { pageSize, page } = pagination;
 
+    const pageSizeParsed = Number(pageSize);
+    const pageParsed = Number(page);
+
     const totalPages = await this.client.count({ where: { isActive: true } });
-    const lastPage = Math.ceil(totalPages / pageSize);
+    const lastPage = Math.ceil(totalPages / pageSizeParsed);
 
     const clients = await this.client.findMany({
       where: { isActive: true },
-      take: pageSize,
-      skip: (page - 1) * pageSize,
+      take: pageSizeParsed,
+      skip: (pageParsed - 1) * pageSizeParsed,
     });
 
     if (!clients) {
@@ -89,7 +92,7 @@ export class ClientsService extends PrismaClient implements OnModuleInit {
     }
 
     return {
-      page,
+      page: pageParsed,
       totalItems: totalPages,
       lastPage,
       pageSize: clients.length,
