@@ -206,8 +206,11 @@ export class AuthService extends PrismaClient implements OnModuleInit {
   async getPaginatedUsers(pagination: PaginationDto) {
     const { page, pageSize } = pagination;
 
+    const pageSizeParsed = Number(pageSize);
+    const pageParsed = Number(page);
+
     const totalItems = await this.user.count({ where: { isActive: true } });
-    const lastPage = Math.ceil(totalItems / pageSize);
+    const lastPage = Math.ceil(totalItems / pageSizeParsed);
 
     const users = await this.user.findMany({
       where: { isActive: true },
@@ -219,14 +222,14 @@ export class AuthService extends PrismaClient implements OnModuleInit {
         lastName: true,
         role: true,
       },
-      take: pageSize,
-      skip: (page - 1) * pageSize,
+      take: pageSizeParsed,
+      skip: (pageParsed - 1) * pageSizeParsed,
     });
 
-    console.log({ pageSize, page, totalItems, lastPage });
+    console.log({ pageSizeParsed, pageParsed, totalItems, lastPage });
 
     return {
-      page,
+      page: pageParsed,
       totalItems,
       lastPage,
       pageSize: users.length,
